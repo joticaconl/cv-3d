@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard - CV 3D</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #09090b; color: white; padding: 2rem; margin: 0; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    h1 { margin: 0; font-weight: 900; color: #f59e0b; }
+    table { width: 100%; border-collapse: collapse; background: #111113; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    th, td { padding: 1.2rem; border-bottom: 1px solid #27272a; text-align: left; }
+    th { background: #18181b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #a1a1aa; }
+    button { background: #f59e0b; color: #09090b; border: none; padding: 0.6rem 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; transition: opacity 0.2s; }
+    button:hover { opacity: 0.8; }
+    button.delete { background: #ef4444; color: white; margin-left: 0.5rem; }
+    .status { font-size: 0.8rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; text-transform: uppercase; }
+    .status.pending { background: rgba(24cd, 213, 53, 0.1); color: #fcd535; border: 1px solid rgba(252, 213, 53, 0.2); }
+    .status.approved { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .stat-card { background: #18181b; padding: 1.5rem; border-radius: 12px; border: 1px solid #27272a; margin-bottom: 2rem; display: inline-block;}
+    .stat-value { font-size: 2rem; font-weight: 900; font-family: monospace; color: #f59e0b; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  
+  <div class="header">
+    <h1>Confirmación de Pagos (Admin)</h1>
+    <a href="/" style="color: #a1a1aa;">Volver al CV</a>
+  </div>
+
+  <div class="stat-card">
+    <div style="font-size: 0.8rem; font-weight: bold; color: #a1a1aa; text-transform: uppercase;">Total Recaudado (Aprobados)</div>
+    <div class="stat-value" id="total-raised">$0</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha / ID</th>
+        <th>Nombre / Marca</th>
+        <th>Aporte ($)</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="table-body">
+      <!-- Inyectado via JS -->
+    </tbody>
+  </table>
+
+  <script>
+    const backendUrl = '/api';
+
+    async function load() {
+      try {
+        const res = await fetch(`${backendUrl}/stickers`);
+        const stickers = await res.json();
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        
+        let raised = 0;
+
+        // Sort: pending first, then latest
+        stickers.sort((a, b) => {
+          if (a.status === 'pending' && b.status === 'approved') return -1;
+          if (a.status === 'approved' && b.status === 'pending') return 1;
+          return parseInt(b.id) - parseInt(a.id);
+        });
+
+        stickers.forEach(s => {
+          if (s.id === 'yummy') return;
+          if (s.status === 'approved') raised += s.price;
+
+          const date = new Date(parseInt(s.id)).toLocaleString();
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="font-size: 0.8rem; color: #a1a1aa;">${date}<br/>ID: ${s.id}</td>
+            <td><strong>${s.name}</strong></td>
+            <td style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">$${s.price.toLocaleString()}</td>
+            <td><span class="status ${s.status}">${s.status}</span></td>
+            <td>
+              ${s.status === 'pending' ? `<button onclick="approve('${s.id}')">Aprobar Pago</button>` : ''}
+              <button class="delete" onclick="remove('${s.id}')">Borrar</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('total-raised').innerText = '$' + raised.toLocaleString();
+      } catch (err) {
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error conectando al backend en el puerto 4000. Asegúrate de ejecutar "node server.js".</td></tr>';
+      }
+    }
+
+    async function approve(id) {
+      await fetch(`${backendUrl}/stickers/${id}/approve`, { method: 'PUT' });
+      load();
+    }
+
+    async function remove(id) {
+      if(!confirm('¿Seguro que deseas eliminar este sticker de la base de datos?')) return;
+      await fetch(`${backendUrl}/stickers/${id}`, { method: 'DELETE' });
+      load();
+    }
+
+    load();
+    // Auto refresh every 10 seconds
+    setInterval(load, 10000);
+  </script>
+</body>
+</html>

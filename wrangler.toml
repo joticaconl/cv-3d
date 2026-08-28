@@ -1,0 +1,6 @@
+name = "cv-3d"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "CV_KV"
+id = "1e2a0068270b4e958d692237bb9c76ee"

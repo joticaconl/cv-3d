@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #f59e0b;
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-panel: var(--panel);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+}
+
+:root {
+  --bg: #fafafa;
+  --fg: #09090b;
+  --panel: #ffffff;
+  --muted: #71717a;
+  --border: #e4e4e7;
+}
+
+.dark {
+  --bg: #09090b;
+  --fg: #ffffff;
+  --panel: #111113;
+  --muted: #a1a1aa;
+  --border: #27272a;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--color-background);
+  color: white;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 25px 2px rgba(245, 158, 11, 0.7); }
+}
+
+.golden-glow {
+  animation: pulse-glow 3s infinite;
+}
+
+.golden-border {
+  position: relative;
+}
+.golden-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(45deg, #f59e0b, #fbbf24, #d97706, #f59e0b);
+  z-index: -1;
+  animation: border-rotate 4s linear infinite;
+  background-size: 200% 200%;
+}
+
+@keyframes border-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
