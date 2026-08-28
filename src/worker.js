@@ -93,7 +93,11 @@ export default {
       }
     }
 
-    // Static Assets fallback is handled automatically by Workers if `assets` is defined in wrangler.jsonc.
-    return new Response('Not found', { status: 404 });
+    // Static Assets fallback
+    try {
+      return await env.ASSETS.fetch(request);
+    } catch (e) {
+      return new Response('Not found', { status: 404 });
+    }
   }
 };

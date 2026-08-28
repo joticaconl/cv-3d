@@ -88,7 +88,7 @@
 
         document.getElementById('total-raised').innerText = '$' + raised.toLocaleString();
       } catch (err) {
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error conectando al backend en el puerto 4000. Asegúrate de ejecutar "node server.js".</td></tr>';
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error conectando a la API. Asegúrate de haber vinculado la base de datos "CV_KV" en las variables de Cloudflare.</td></tr>';
       }
     }
 
