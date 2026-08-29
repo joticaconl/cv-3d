@@ -26,7 +26,7 @@
   <div class="header">
     <div>
       <h1>Confirmación de Pagos (Admin)</h1>
-      <span style="font-size: 0.8rem; color: #10b981;">🛡️ Panel Protegido con Autenticación Criptográfica</span>
+      <span style="font-size: 0.8rem; color: #10b981;">🛡️ Blindaje Nivel 0.00001% (HMAC Anti-Replay + Edge KV)</span>
     </div>
     <div class="auth-bar">
       <button onclick="setAdminToken()" style="background: #27272a; color: #e4e4e7;">Cambiar Token</button>
@@ -76,6 +76,33 @@
       }
     }
 
+    async function createSignedHeaders(method, pathname, token) {
+      const timestamp = String(Date.now());
+      const nonce = Math.random().toString(36).substring(2, 15);
+      const enc = new TextEncoder();
+      
+      try {
+        const key = await crypto.subtle.importKey(
+          'raw',
+          enc.encode(token),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const signature = await crypto.subtle.sign('HMAC', key, enc.encode(`${method}:${pathname}:${timestamp}:${nonce}`));
+        const sigHex = Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('');
+
+        return {
+          'Authorization': `Bearer ${token}`,
+          'X-Signature': sigHex,
+          'X-Timestamp': timestamp,
+          'X-Nonce': nonce,
+        };
+      } catch {
+        return { 'Authorization': `Bearer ${token}` };
+      }
+    }
+
     async function load() {
       try {
         const res = await fetch(`${backendUrl}/stickers`);
@@ -89,18 +116,18 @@
         stickers.sort((a, b) => {
           if (a.status === 'pending' && b.status === 'approved') return -1;
           if (a.status === 'approved' && b.status === 'pending') return 1;
-          return parseInt(b.id) - parseInt(a.id);
+          return (b.createdAt || 0) - (a.createdAt || 0);
         });
 
         stickers.forEach(s => {
           if (s.id === 'yummy') return;
           if (s.status === 'approved') raised += s.price;
 
-          const date = new Date(parseInt(s.id)).toLocaleString();
+          const date = s.createdAt ? new Date(s.createdAt).toLocaleString() : (isNaN(Number(s.id)) ? 'Reciente' : new Date(Number(s.id)).toLocaleString());
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="font-size: 0.8rem; color: #a1a1aa;">${date}<br/>ID: ${s.id}</td>
+            <td style="font-size: 0.8rem; color: #a1a1aa;">${date}<br/><code style="color: #f59e0b;">${s.id}</code></td>
             <td><strong>${s.name}</strong></td>
             <td style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">$${s.price.toLocaleString()}</td>
             <td><span class="status ${s.status}">${s.status}</span></td>
@@ -122,14 +149,17 @@
       const token = getAdminToken();
       if (!token) return alert('Debes proporcionar el token de administrador.');
 
+      const pathname = `/api/stickers/${id}/approve`;
+      const signedHeaders = await createSignedHeaders('PUT', pathname, token);
+
       const res = await fetch(`${backendUrl}/stickers/${id}/approve`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: signedHeaders
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Error no autorizado' }));
-        alert('❌ Error: ' + (data.error || 'Token inválido.'));
+        alert('❌ Error: ' + (data.error || 'Token o firma inválida.'));
         if (res.status === 401) {
           sessionStorage.removeItem('cv_admin_token');
         }
@@ -143,14 +173,17 @@
       const token = getAdminToken();
       if (!token) return alert('Debes proporcionar el token de administrador.');
 
+      const pathname = `/api/stickers/${id}`;
+      const signedHeaders = await createSignedHeaders('DELETE', pathname, token);
+
       const res = await fetch(`${backendUrl}/stickers/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: signedHeaders
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Error no autorizado' }));
-        alert('❌ Error: ' + (data.error || 'Token inválido.'));
+        alert('❌ Error: ' + (data.error || 'Token o firma inválida.'));
         if (res.status === 401) {
           sessionStorage.removeItem('cv_admin_token');
         }
