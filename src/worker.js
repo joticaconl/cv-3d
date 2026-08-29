@@ -41,9 +41,13 @@ async function generateHmacSha256(key, message) {
 }
 
 async function verifyAdminAuth(request, env) {
-  const adminSecret = env.ADMIN_SECRET_TOKEN || env.ADMIN_SECRET || 'cv3d_admin_secret_key_2026';
+  const adminSecret = env.ADMIN_SECRET_TOKEN || env.ADMIN_SECRET;
+  if (!adminSecret) {
+    console.error("ADMIN_SECRET_TOKEN no configurado en Cloudflare Worker");
+    return false;
+  }
   
-  // 1. Verificación de Firma Criptográfica HMAC (Anti-Replay Attack)
+  // 1. Verificación de Firma Criptográfica HMAC (Anti-Replay Attack con Nonce en KV)
   const sig = request.headers.get('X-Signature');
   const timestamp = request.headers.get('X-Timestamp');
   const nonce = request.headers.get('X-Nonce');
@@ -51,10 +55,23 @@ async function verifyAdminAuth(request, env) {
   if (sig && timestamp && nonce) {
     const now = Date.now();
     const reqTime = parseInt(timestamp, 10);
-    // Ventana máxima de 60 segundos para evitar ataques de repetición
+    // Ventana máxima de 60 segundos
     if (isNaN(reqTime) || Math.abs(now - reqTime) > 60000) {
       return false;
     }
+
+    // Prevención estricta de repetición: validar si el nonce ya fue utilizado en Edge KV
+    if (env.CV_KV) {
+      try {
+        const nonceKey = `nonce:${nonce}`;
+        const alreadyUsed = await env.CV_KV.get(nonceKey);
+        if (alreadyUsed) {
+          return false; // Replay attack neutralizado
+        }
+        await env.CV_KV.put(nonceKey, '1', { expirationTtl: 120 });
+      } catch {}
+    }
+
     const url = new URL(request.url);
     const expectedSig = await generateHmacSha256(adminSecret, `${request.method}:${url.pathname}:${timestamp}:${nonce}`);
     if (safeCompare(sig, expectedSig)) {
@@ -207,7 +224,7 @@ export default {
             position: Array.isArray(rawSticker.position) ? rawSticker.position.slice(0, 3) : [0, 0, 0],
             rotation: Array.isArray(rawSticker.rotation) ? rawSticker.rotation.slice(0, 3) : [0, 0, 0],
             imageName: typeof rawSticker.imageName === 'string' ? rawSticker.imageName.slice(0, 100) : 'default',
-            texture: typeof rawSticker.texture === 'string' && rawSticker.texture.startsWith('data:image/') ? rawSticker.texture.slice(0, 15000) : null,
+            texture: typeof rawSticker.texture === 'string' && /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(rawSticker.texture) ? rawSticker.texture.slice(0, 15000) : null,
             status: 'pending',
             createdAt: Date.now()
           };
